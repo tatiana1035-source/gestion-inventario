@@ -14,13 +14,13 @@ import java.time.LocalDateTime;
  * <p>Contiene toda la información relevante de un producto: nombre, precio,
  * stock disponible, categoría y proveedor asociado.</p>
  *
- * <p>Mapeada a la tabla {@code productos} en MySQL mediante Hibernate/JPA.</p>
+ * <p>Mapeada a la tabla {@code producto} en MySQL mediante Hibernate/JPA.</p>
  *
  * @author Yuli Tatiana Moreno Vásquez
- * @version 1.0.0
+ * @version 1.1.0
  */
 @Entity
-@Table(name = "productos")
+@Table(name = "producto")
 @Data
 @NoArgsConstructor
 public class Producto {
@@ -58,10 +58,11 @@ public class Producto {
     /**
      * Cantidad actual disponible en inventario.
      * No puede ser negativa.
+     * Mapeada a la columna 'cantidad' en la tabla producto.
      */
     @NotNull(message = "El stock es obligatorio")
     @Min(value = 0, message = "El stock no puede ser negativo")
-    @Column(name = "stock", nullable = false)
+    @Column(name = "cantidad", nullable = false)
     private Integer stock;
 
     /**
@@ -80,7 +81,7 @@ public class Producto {
 
     /**
      * Fecha y hora en que se registró el producto.
-     * Se asigna automáticamente al crear el registro.
+     * Se asigna automáticamente al crear el registro mediante @PrePersist.
      */
     @Column(name = "fecha_registro", updatable = false)
     private LocalDateTime fechaRegistro;

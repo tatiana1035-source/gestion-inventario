@@ -30,25 +30,17 @@ import java.util.Optional;
  *          un producto alcance el nivel minimo de stock.
  *          Implementado en: obtenerProductosStockBajo()
  *
- * Patron de capas: Controller -> Service -> Repository -> Base de datos
- *
- * @Transactional garantiza que cada operacion de escritura se ejecute
- * dentro de una transaccion de base de datos (Hibernate/JPA).
- *
  * @author Yuli Tatiana Moreno Vasquez
- * @version 1.0.0
+ * @version 1.1.0
  */
 @Service
 @RequiredArgsConstructor
 public class ProductoService {
 
-    /** Repositorio JPA para acceso a la tabla productos. */
     private final ProductoRepository productoRepository;
 
     /**
      * Obtiene todos los productos activos del inventario ordenados por nombre.
-     *
-     * @return lista de productos activos
      */
     @Transactional(readOnly = true)
     public List<Producto> listarProductosActivos() {
@@ -57,8 +49,6 @@ public class ProductoService {
 
     /**
      * Obtiene todos los productos incluyendo inactivos.
-     *
-     * @return lista completa de productos
      */
     @Transactional(readOnly = true)
     public List<Producto> listarTodos() {
@@ -81,13 +71,7 @@ public class ProductoService {
 
     /**
      * Busca productos cuyo nombre contenga el texto indicado.
-     *
-     * CP-004 - Flujo normal paso 3: el sistema muestra la informacion solicitada.
-     * CP-004 - Flujo alternativo: si no encuentra resultado retorna lista vacia
-     *          y la vista muestra el mensaje "No se encontraron productos".
-     *
-     * @param nombre texto a buscar en el nombre del producto
-     * @return lista de productos que coinciden
+     * CP-004 - Flujo normal paso 3.
      */
     @Transactional(readOnly = true)
     public List<Producto> buscarPorNombre(String nombre) {
@@ -96,14 +80,7 @@ public class ProductoService {
 
     /**
      * Obtiene los productos con stock igual o por debajo del stock minimo.
-     *
-     * CP-008 - Alertas y notificaciones:
-     * El sistema controla las cantidades minimas y genera alerta cuando
-     * los productos estan en el punto mas bajo.
-     * Criterio de aceptacion: las alertas deben ser oportunas y precisas,
-     * priorizando productos con el stock mas bajo.
-     *
-     * @return lista de productos con stock bajo
+     * CP-008 - Alertas de stock bajo.
      */
     @Transactional(readOnly = true)
     public List<Producto> obtenerProductosStockBajo() {
@@ -112,11 +89,7 @@ public class ProductoService {
 
     /**
      * Guarda un nuevo producto en la base de datos.
-     *
-     * CP-001 - Flujo normal: ingresa nombre, codigo, cantidad, proveedor,
-     * fecha de vencimiento -> se registra en la BD -> el stock queda actualizado.
-     * CP-001 - Flujo alternativo: si el codigo ya existe lanza excepcion con
-     * mensaje de alerta al usuario (criterio de aceptacion: stock actualizado).
+     * CP-001 - Flujo normal y flujo alternativo (codigo duplicado).
      *
      * @param producto objeto con los datos del nuevo producto
      * @return el producto guardado con su ID asignado
@@ -124,7 +97,6 @@ public class ProductoService {
      */
     @Transactional
     public Producto guardar(Producto producto) {
-        // CP-001: Verificar unicidad del codigo antes de registrar
         if (producto.getCodigoProducto() != null && !producto.getCodigoProducto().isEmpty()) {
             Optional<Producto> existente = productoRepository
                     .findByCodigoProducto(producto.getCodigoProducto());
@@ -140,15 +112,26 @@ public class ProductoService {
     /**
      * Actualiza los datos de un producto existente.
      *
+     * FIX: Se preservan fechaRegistro y activo del registro original
+     * para evitar que Hibernate los sobreescriba con null al hacer save().
+     *
      * @param id       identificador del producto a actualizar
      * @param producto objeto con los nuevos datos
      * @return el producto actualizado
      */
     @Transactional
     public Producto actualizar(Long id, Producto producto) {
-        // Verificar que el producto existe antes de actualizar
-        buscarPorId(id);
+        // Cargar el registro original para recuperar campos no editables
+        Producto existente = buscarPorId(id);
+
         producto.setIdProducto(id);
+
+        // FIX Bug #2: Preservar fechaRegistro (el @PrePersist no se dispara en update)
+        producto.setFechaRegistro(existente.getFechaRegistro());
+
+        // FIX Bug #2: Preservar el estado activo para no reactivar productos eliminados
+        producto.setActivo(existente.getActivo());
+
         return productoRepository.save(producto);
     }
 
@@ -161,7 +144,7 @@ public class ProductoService {
     @Transactional
     public void eliminar(Long id) {
         Producto producto = buscarPorId(id);
-        producto.setActivo(false); // Borrado logico: preserva el historial
+        producto.setActivo(false);
         productoRepository.save(producto);
     }
 
@@ -169,10 +152,7 @@ public class ProductoService {
      * Actualiza unicamente la cantidad en stock de un producto.
      *
      * CP-002 - Flujo normal pasos 4-5: ingresa nueva cantidad y guarda cambios.
-     * CP-002 - Flujo alternativo: si la cantidad es erronea el sistema envia
-     * error y pide correccion (lanzando IllegalArgumentException).
-     * Criterio de aceptacion: se evidencian los cambios con el usuario
-     * que realiza la modificacion.
+     * CP-002 - Flujo alternativo: si la cantidad es negativa lanza excepcion.
      *
      * @param id       identificador del producto
      * @param cantidad nueva cantidad en stock (debe ser mayor o igual a 0)
@@ -180,7 +160,6 @@ public class ProductoService {
      */
     @Transactional
     public void actualizarStock(Long id, Integer cantidad) {
-        // CP-002: Validar cantidad antes de actualizar (flujo alternativo)
         if (cantidad < 0) {
             throw new IllegalArgumentException(
                     "El stock no puede ser negativo. Corrija la cantidad ingresada.");

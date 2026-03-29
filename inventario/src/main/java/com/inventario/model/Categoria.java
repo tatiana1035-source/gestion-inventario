@@ -20,7 +20,7 @@ import java.util.List;
  * @version 1.0.0
  */
 @Entity
-@Table(name = "categorias")
+@Table(name = "categoria")
 @Data                   // Lombok: genera getters, setters, toString, equals, hashCode
 @NoArgsConstructor      // Lombok: constructor vacío requerido por JPA
 public class Categoria {

@@ -48,6 +48,13 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
 
+            <!-- Mensaje de error -->
+            <div th:if="${mensajeError}" class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <span th:text="${mensajeError}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
             <!-- Buscador -->
             <div class="card mb-3">
                 <div class="card-body">
@@ -82,34 +89,37 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- Thymeleaf: iterar la lista de productos -->
                             <tr th:each="p, stat : ${productos}"
                                 th:class="${p.stockBajo} ? 'table-warning' : ''">
                                 <td th:text="${stat.count}"></td>
                                 <td>
-                                    <code th:text="${p.codigoProducto ?: '-'}"></code>
+                                    <code th:text="${p.codigoProducto != null ? p.codigoProducto : '-'}"></code>
                                 </td>
                                 <td>
                                     <strong th:text="${p.nombre}"></strong>
-                                    <!-- Indicador de stock bajo -->
+                                    <!-- Indicador de stock bajo (CP-008) -->
                                     <span th:if="${p.stockBajo}"
                                           class="badge bg-warning text-dark ms-1">
                                         <i class="bi bi-exclamation-triangle"></i> Stock bajo
                                     </span>
                                 </td>
+                                <!--
+                                    FIX: Se usa th:text con operador ternario en lugar de ?.
+                                    Thymeleaf no soporta el safe-navigation operator de Java.
+                                    Además se usa EAGER en la consulta para evitar LazyInitializationException.
+                                -->
                                 <td>
                                     <span class="badge bg-secondary"
-                                          th:text="${p.categoria?.nombre ?: '-'}"></span>
+                                          th:text="${p.categoria != null ? p.categoria.nombre : '-'}"></span>
                                 </td>
                                 <td>
-                                    <!-- Formato de moneda con Thymeleaf -->
                                     <span th:text="${'$' + #numbers.formatDecimal(p.precio, 1, 2)}"></span>
                                 </td>
                                 <td>
                                     <span th:class="${p.stock <= p.stockMinimo} ? 'text-danger fw-bold' : ''"
                                           th:text="${p.stock}"></span>
                                 </td>
-                                <td th:text="${p.proveedor?.nombre ?: '-'}"></td>
+                                <td th:text="${p.proveedor != null ? p.proveedor.nombre : '-'}"></td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         <a th:href="@{/productos/detalle/{id}(id=${p.idProducto})}"

@@ -15,30 +15,40 @@ import java.util.Optional;
  * <p>Extiende {@link JpaRepository}, lo cual provee automáticamente
  * los métodos CRUD estándar: save(), findById(), findAll(), deleteById(), etc.</p>
  *
- * <p>Hibernate genera las consultas SQL de forma transparente a partir
- * de los nombres de los métodos (Spring Data Query Derivation).</p>
+ * <p>Se usan consultas JPQL con LEFT JOIN FETCH para cargar las relaciones
+ * LAZY (categoria y proveedor) en la misma consulta, evitando el
+ * LazyInitializationException al acceder a ellas en las vistas Thymeleaf.</p>
  *
  * @author Yuli Tatiana Moreno Vásquez
- * @version 1.0.0
+ * @version 1.1.0
  */
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     /**
+     * Obtiene todos los productos activos ordenados por nombre ascendente.
+     * Usa JOIN FETCH para cargar categoría y proveedor en la misma consulta.
+     *
+     * CP-008 - Las alertas de stock bajo se calculan en memoria con isStockBajo().
+     *
+     * @return lista de productos activos con sus relaciones cargadas
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.categoria LEFT JOIN FETCH p.proveedor WHERE p.activo = true ORDER BY p.nombre ASC")
+    List<Producto> findByActivoTrueOrderByNombreAsc();
+
+    /**
      * Busca productos cuyo nombre contenga el texto dado (búsqueda insensible
      * a mayúsculas/minúsculas).
+     * Usa JOIN FETCH para cargar categoría y proveedor en la misma consulta.
+     *
+     * CP-004 - Flujo normal paso 3: el sistema muestra la información solicitada.
      *
      * @param nombre texto a buscar en el nombre del producto
      * @return lista de productos que coinciden con la búsqueda
      */
-    List<Producto> findByNombreContainingIgnoreCase(String nombre);
-
-    /**
-     * Obtiene todos los productos activos ordenados por nombre ascendente.
-     *
-     * @return lista de productos activos
-     */
-    List<Producto> findByActivoTrueOrderByNombreAsc();
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.categoria LEFT JOIN FETCH p.proveedor " +
+       "WHERE LOWER(p.nombre) LIKE LOWER(CONCAT('%', :nombre, '%')) AND p.activo = true")
+    List<Producto> findByNombreContainingIgnoreCase(@Param("nombre") String nombre);
 
     /**
      * Busca un producto por su código único (SKU).
@@ -60,9 +70,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
      * Consulta JPQL personalizada: retorna productos con stock por debajo
      * del stock mínimo (para alertas de reabastecimiento).
      *
+     * CP-008 - Alertas y notificaciones: el sistema controla las cantidades
+     * mínimas y genera alerta cuando los productos están en el punto más bajo.
+     *
      * @return lista de productos con stock bajo
      */
-    @Query("SELECT p FROM Producto p WHERE p.stock <= p.stockMinimo AND p.activo = true")
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.categoria LEFT JOIN FETCH p.proveedor WHERE p.stock <= p.stockMinimo AND p.activo = true")
     List<Producto> findProductosConStockBajo();
 
     /**

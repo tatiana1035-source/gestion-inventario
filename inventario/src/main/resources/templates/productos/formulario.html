@@ -55,6 +55,11 @@
                         - th:action: URL dinámica según si es nuevo o edición
                         - th:field: enlaza cada campo con la propiedad del objeto
                         - th:errors: muestra errores de validación por campo
+
+                        FIX: La categoría y el proveedor se envían como IDs separados
+                        (name="categoriaId" y name="proveedorId") para evitar el
+                        LazyInitializationException que ocurría con th:field="*{categoria.idCategoria}"
+                        cuando Hibernate no había cargado la relación LAZY.
                     -->
                     <form th:action="${producto.idProducto == null} ? '/productos/guardar' : '/productos/actualizar/' + ${producto.idProducto}"
                           th:object="${producto}"
@@ -76,7 +81,6 @@
                                        th:field="*{nombre}"
                                        th:class="${#fields.hasErrors('nombre')} ? 'form-control is-invalid' : 'form-control'"
                                        placeholder="Nombre del producto">
-                                <!-- Mensaje de error de validación -->
                                 <div class="invalid-feedback" th:errors="*{nombre}"></div>
                             </div>
 
@@ -120,27 +124,33 @@
                                 <small class="text-muted">Alerta cuando el stock llegue a este valor</small>
                             </div>
 
-                            <!-- Categoría (obligatoria) -->
+                            <!--
+                                FIX Bug #1: Categoría enviada como name="categoriaId" (no th:field)
+                                Esto evita que Thymeleaf intente acceder a categoria.idCategoria
+                                a través del proxy LAZY de Hibernate, lo que causaba el crash.
+                            -->
                             <div class="col-md-6">
                                 <label class="form-label">Categoría *</label>
-                                <select th:field="*{categoria.idCategoria}"
-                                        th:class="${#fields.hasErrors('categoria')} ? 'form-select is-invalid' : 'form-select'">
+                                <select name="categoriaId" class="form-select">
                                     <option value="">-- Seleccione una categoría --</option>
                                     <option th:each="cat : ${categorias}"
                                             th:value="${cat.idCategoria}"
-                                            th:text="${cat.nombre}"></option>
+                                            th:text="${cat.nombre}"
+                                            th:selected="${producto.categoria != null and producto.categoria.idCategoria == cat.idCategoria}">
+                                    </option>
                                 </select>
-                                <div class="invalid-feedback" th:errors="*{categoria}"></div>
                             </div>
 
                             <!-- Proveedor (opcional) -->
                             <div class="col-md-6">
                                 <label class="form-label">Proveedor</label>
-                                <select th:field="*{proveedor.idProveedor}" class="form-select">
+                                <select name="proveedorId" class="form-select">
                                     <option value="">-- Sin proveedor asignado --</option>
                                     <option th:each="prov : ${proveedores}"
                                             th:value="${prov.idProveedor}"
-                                            th:text="${prov.nombre}"></option>
+                                            th:text="${prov.nombre}"
+                                            th:selected="${producto.proveedor != null and producto.proveedor.idProveedor == prov.idProveedor}">
+                                    </option>
                                 </select>
                             </div>
                         </div>
